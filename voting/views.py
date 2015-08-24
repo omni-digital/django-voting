@@ -1,13 +1,19 @@
-from django.contrib.contenttypes.models import ContentType
+# coding: utf-8
+
+from __future__ import unicode_literals
+
 from django.core.exceptions import ObjectDoesNotExist
-from django.http import Http404, HttpResponse, HttpResponseRedirect
+from django.db.models import get_model
+from django.http import Http404, HttpResponse, HttpResponseBadRequest, \
+    HttpResponseRedirect
 from django.contrib.auth.views import redirect_to_login
 from django.template import loader, RequestContext
-from django.utils import simplejson
+import json
 
 from voting.models import Vote
 
 VOTE_DIRECTIONS = (('up', 1), ('down', -1), ('clear', 0))
+
 
 def vote_on_object(request, model, direction, post_vote_redirect=None,
         object_id=None, slug=None, slug_field=None, template_name=None,
@@ -39,14 +45,15 @@ def vote_on_object(request, model, direction, post_vote_redirect=None,
                                              object_id=object_id, slug=slug,
                                              slug_field=slug_field)
 
-    if extra_context is None: extra_context = {}
+    if extra_context is None:
+        extra_context = {}
     if not request.user.is_authenticated():
         return redirect_to_login(request.path)
 
     try:
         vote = dict(VOTE_DIRECTIONS)[direction]
     except KeyError:
-        raise AttributeError("'%s' is not a valid vote type." % vote_type)
+        raise AttributeError("'%s' is not a valid vote type." % direction)
 
     # Look up the object to be voted on
     lookup_kwargs = {}
@@ -60,12 +67,13 @@ def vote_on_object(request, model, direction, post_vote_redirect=None,
     try:
         obj = model._default_manager.get(**lookup_kwargs)
     except ObjectDoesNotExist:
-        raise Http404, 'No %s found for %s.' % (model._meta.app_label, lookup_kwargs)
+        raise Http404('No %s found for %s.' %
+                      (model._meta.app_label, lookup_kwargs))
 
     if request.method == 'POST':
         if post_vote_redirect is not None:
             next = post_vote_redirect
-        elif request.REQUEST.has_key('next'):
+        elif 'next' in request.REQUEST:
             next = request.REQUEST['next']
         elif hasattr(obj, 'get_absolute_url'):
             if callable(getattr(obj, 'get_absolute_url')):
@@ -97,12 +105,29 @@ def vote_on_object(request, model, direction, post_vote_redirect=None,
         response = HttpResponse(t.render(c))
         return response
 
+
+def vote_on_object_with_lazy_model(request, app_label, model_name, *args,
+    **kwargs):
+    """
+    Generic object vote view that takes app_label and model_name instead
+    of a model class and calls ``vote_on_object`` view.
+    Returns HTTP 400 (Bad Request) if there is no model matching the app_label
+    and model_name.
+    """
+    model = get_model(app_label, model_name)
+    if not model:
+        return HttpResponseBadRequest('Model %s.%s does not exist' % (
+            app_label, model_name))
+    return vote_on_object(request, model=model, *args, **kwargs)
+
+
 def json_error_response(error_message):
-    return HttpResponse(simplejson.dumps(dict(success=False,
+    return HttpResponse(json.dumps(dict(success=False,
                                               error_message=error_message)))
 
+
 def xmlhttprequest_vote_on_object(request, model, direction,
-    object_id=None, slug=None, slug_field=None):
+        object_id=None, slug=None, slug_field=None):
     """
     Generic object vote function for use via XMLHttpRequest.
 
@@ -147,7 +172,7 @@ def xmlhttprequest_vote_on_object(request, model, direction,
 
     # Vote and respond
     Vote.objects.record_vote(obj, request.user, vote)
-    return HttpResponse(simplejson.dumps({
+    return HttpResponse(json.dumps({
         'success': True,
         'score': Vote.objects.get_score(obj),
     }))
