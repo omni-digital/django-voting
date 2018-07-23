@@ -6,6 +6,7 @@ install:
 env:
   - TOXENV=py27-django1.8
   - TOXENV=py35-django1.8
+  - TOXENV=py35-django1.11
   - TOXENV=coverage
 script:
   - tox -e $TOXENV
