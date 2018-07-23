@@ -1,15 +1,8 @@
 from distutils.core import setup
 
-# Dynamically calculate the version based on tagging.VERSION.
-version_tuple = __import__('voting').VERSION
-if version_tuple[2] is not None:
-    version = "%d.%d_%s" % version_tuple
-else:
-    version = "%d.%d" % version_tuple[:2]
-
 setup(
     name='django-voting',
-    version=version,
+    version='0.2.1',
     description='Generic voting application for Django',
     author='Jonathan Buchanan',
     author_email='jonathan.buchanan@gmail.com',
