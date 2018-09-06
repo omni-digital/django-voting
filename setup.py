@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='django-voting',
-    version='0.2.1',
+    version='0.3.1',
     description='Generic voting application for Django',
     author='Jonathan Buchanan',
     author_email='jonathan.buchanan@gmail.com',
